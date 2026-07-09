@@ -1,0 +1,548 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Company {
+  id               String                 @id @default(cuid())
+  name             String
+  industry         String?
+  isInternal       Boolean                @default(false) @map("is_internal")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  deletedAt        DateTime?              @map("deleted_at")
+  certificates     Certificate[]
+  reportSnapshots  ClientReportSnapshot[]
+  deliveryHandoffs DeliveryHandoff[]
+  expansionSignals ExpansionSignal[]
+  programInstances ProgramInstance[]
+  snapshots        ProgramSnapshot[]
+  users            User[]
+
+  @@map("companies")
+}
+
+model User {
+  id              String           @id @default(cuid())
+  companyId       String           @map("company_id")
+  name            String
+  email           String           @unique
+  role            Role
+  avatarUrl       String?          @map("avatar_url")
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  actionPlans     ActionPlan[]
+  attendance      Attendance[]
+  auditLogs       AuditLog[]
+  certificates    Certificate[]
+  copilotThreads  CopilotThread[]
+  enrollments     Enrollment[]
+  formSubmissions FormSubmission[]
+  quizAttempts    QuizAttempt[]
+  company         Company          @relation(fields: [companyId], references: [id])
+
+  @@map("users")
+}
+
+model ProgramTemplate {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  isInternal  Boolean           @default(false) @map("is_internal")
+  authorId    String?           @map("author_id")
+  courses     Course[]
+  instances   ProgramInstance[]
+
+  @@map("program_templates")
+}
+
+model Course {
+  id                String           @id @default(cuid())
+  title             String
+  description       String
+  programTemplateId String?          @map("program_template_id")
+  certificates      Certificate[]
+  programTemplate   ProgramTemplate? @relation(fields: [programTemplateId], references: [id])
+  modules           Module[]
+  resources         Resource[]
+
+  @@map("courses")
+}
+
+model Module {
+  id         String   @id @default(cuid())
+  courseId   String   @map("course_id")
+  title      String
+  orderIndex Int      @map("order_index")
+  lessons    Lesson[]
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("modules")
+}
+
+model Lesson {
+  id               String           @id @default(cuid())
+  moduleId         String           @map("module_id")
+  title            String
+  type             LessonType
+  orderIndex       Int              @map("order_index")
+  videoUrl         String?          @map("video_url")
+  contentMarkdown  String?          @map("content_markdown")
+  estimatedMinutes Int?             @map("estimated_minutes")
+  keyTakeaway      String?          @map("key_takeaway")
+  module           Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progressRecords  ProgressRecord[]
+  quizzes          Quiz[]
+  resources        Resource[]
+
+  @@map("lessons")
+}
+
+model Resource {
+  id       String       @id @default(cuid())
+  lessonId String?      @map("lesson_id")
+  courseId String?      @map("course_id")
+  title    String
+  fileUrl  String       @map("file_url")
+  type     ResourceType
+  course   Course?      @relation(fields: [courseId], references: [id])
+  lesson   Lesson?      @relation(fields: [lessonId], references: [id])
+
+  @@map("resources")
+}
+
+model Quiz {
+  id           String         @id @default(cuid())
+  lessonId     String         @map("lesson_id")
+  title        String
+  passingScore Int            @map("passing_score")
+  attempts     QuizAttempt[]
+  questions    QuizQuestion[]
+  lesson       Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id              String   @id @default(cuid())
+  quizId          String   @map("quiz_id")
+  questionText    String   @map("question_text")
+  options         String[]
+  correctIndex    Int      @map("correct_index")
+  explanationText String?  @map("explanation_text")
+  orderIndex      Int      @map("order_index")
+  quiz            Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_questions")
+}
+
+model ProgramInstance {
+  id                    String            @id @default(cuid())
+  programTemplateId     String            @map("program_template_id")
+  companyId             String            @map("company_id")
+  name                  String
+  status                String
+  startDate             DateTime?         @map("start_date")
+  endDate               DateTime?         @map("end_date")
+  edge10OpportunityId   String?           @map("edge10_opportunity_id")
+  deliveryHandoffId     String?           @map("delivery_handoff_id")
+  businessNeed          String?           @map("business_need")
+  audienceSummary       String?           @map("audience_summary")
+  successMeasures       String[]          @map("success_measures")
+  competencyTags        String[]          @map("competency_tags")
+  assessmentPlanSummary String?           @map("assessment_plan_summary")
+  ownerId               String?           @map("owner_id")
+  facilitatorIds        String[]          @map("facilitator_ids")
+  deletedAt             DateTime?         @map("deleted_at")
+  actionPlans           ActionPlan[]
+  certificates          Certificate[]
+  cohorts               Cohort[]
+  enrollments           Enrollment[]
+  expansionSignals      ExpansionSignal[]
+  forms                 Form[]
+  company               Company           @relation(fields: [companyId], references: [id])
+  deliveryHandoff       DeliveryHandoff?  @relation(fields: [deliveryHandoffId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  programTemplate       ProgramTemplate   @relation(fields: [programTemplateId], references: [id], onDelete: Cascade)
+  snapshots             ProgramSnapshot[]
+  reportSnapshots       ReportSnapshot[]
+
+  @@map("program_instances")
+}
+
+model Cohort {
+  id                String          @id @default(cuid())
+  programInstanceId String          @map("program_instance_id")
+  name              String
+  facilitatorId     String?         @map("facilitator_id")
+  programInstance   ProgramInstance @relation(fields: [programInstanceId], references: [id], onDelete: Cascade)
+  enrollments       Enrollment[]
+  sessions          Session[]
+
+  @@map("cohorts")
+}
+
+model Session {
+  id              String            @id @default(cuid())
+  cohortId        String            @map("cohort_id")
+  title           String
+  scheduledAt     DateTime          @map("scheduled_at")
+  durationMinutes Int?              @map("duration_minutes")
+  meetingLink     String?           @map("meeting_link")
+  prepNotes       String?           @map("prep_notes")
+  attendance      Attendance[]
+  notes           FacilitatorNote[]
+  cohort          Cohort            @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model FacilitatorNote {
+  id                      String   @id @default(cuid())
+  sessionId               String   @map("session_id")
+  consultantId            String   @map("consultant_id")
+  noteText                String   @map("note_text")
+  energyRating            Int?     @map("energy_rating")
+  participationRating     Int?     @map("participation_rating")
+  resistanceNoted         String?  @map("resistance_noted")
+  examplesHeard           String?  @map("examples_heard")
+  commitmentsMade         String?  @map("commitments_made")
+  risksIdentified         String?  @map("risks_identified")
+  followUpNeeded          String?  @map("follow_up_needed")
+  resourcesToSend         String?  @map("resources_to_send")
+  expansionSignalDetected Boolean  @default(false) @map("expansion_signal_detected")
+  isInternalOnly          Boolean  @default(true) @map("is_internal_only")
+  createdAt               DateTime @default(now()) @map("created_at")
+  session                 Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("facilitator_notes")
+}
+
+model Enrollment {
+  id                 String           @id @default(cuid())
+  userId             String           @map("user_id")
+  cohortId           String           @map("cohort_id")
+  companyId          String           @map("company_id")
+  programInstanceId  String?          @map("program_instance_id")
+  status             String
+  progressPercentage Int              @map("progress_percentage")
+  enrolledAt         DateTime         @default(now()) @map("enrolled_at")
+  cohort             Cohort           @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  programInstance    ProgramInstance? @relation(fields: [programInstanceId], references: [id])
+  user               User             @relation(fields: [userId], references: [id])
+  progressRecords    ProgressRecord[]
+
+  @@map("enrollments")
+}
+
+model ProgressRecord {
+  id           String     @id @default(cuid())
+  enrollmentId String     @map("enrollment_id")
+  lessonId     String     @map("lesson_id")
+  completed    Boolean    @default(false)
+  completedAt  DateTime?  @map("completed_at")
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson       Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("progress_records")
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  quizId      String   @map("quiz_id")
+  userId      String   @map("user_id")
+  score       Int
+  passed      Boolean
+  attemptedAt DateTime @default(now()) @map("attempted_at")
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("quiz_attempts")
+}
+
+model ActionPlan {
+  id                String          @id @default(cuid())
+  userId            String          @map("user_id")
+  programInstanceId String          @map("program_instance_id")
+  commitment        String
+  whyItMatters      String          @map("why_it_matters")
+  dueDate           DateTime        @map("due_date")
+  status            String
+  evidenceNote      String?         @map("evidence_note")
+  programInstance   ProgramInstance @relation(fields: [programInstanceId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id])
+
+  @@map("action_plans")
+}
+
+model Certificate {
+  id                String          @id @default(cuid())
+  userId            String          @map("user_id")
+  companyId         String          @map("company_id")
+  programInstanceId String          @map("program_instance_id")
+  courseId          String?         @map("course_id")
+  programTitle      String?         @map("program_title")
+  learnerName       String?         @map("learner_name")
+  issuedAt          DateTime?       @map("issued_at")
+  expiresAt         DateTime?       @map("expires_at")
+  revokedAt         DateTime?       @map("revoked_at")
+  revokedReason     String?         @map("revoked_reason")
+  certificateUrl    String?         @map("certificate_url")
+  certificateNumber String?         @map("certificate_number")
+  verificationToken String?         @map("verification_token")
+  status            String
+  deletedAt         DateTime?       @map("deleted_at")
+  company           Company         @relation(fields: [companyId], references: [id])
+  course            Course?         @relation(fields: [courseId], references: [id])
+  programInstance   ProgramInstance @relation(fields: [programInstanceId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id])
+
+  @@map("certificates")
+}
+
+model Form {
+  id                String           @id @default(cuid())
+  title             String
+  programInstanceId String?          @map("program_instance_id")
+  submissions       FormSubmission[]
+  programInstance   ProgramInstance? @relation(fields: [programInstanceId], references: [id], onDelete: Cascade)
+
+  @@map("forms")
+}
+
+model FormSubmission {
+  id          String   @id @default(cuid())
+  formId      String   @map("form_id")
+  userId      String   @map("user_id")
+  responses   Json
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("form_submissions")
+}
+
+model Attendance {
+  id        String  @id @default(cuid())
+  sessionId String  @map("session_id")
+  userId    String  @map("user_id")
+  status    String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@map("attendance")
+}
+
+model RitualTemplate {
+  id          String @id @default(cuid())
+  title       String
+  frequency   String
+  description String
+
+  @@map("ritual_templates")
+}
+
+model ClientReportSnapshot {
+  id          String   @id @default(cuid())
+  companyId   String   @map("company_id")
+  generatedAt DateTime @default(now()) @map("generated_at")
+  metricsData Json     @map("metrics_data")
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@map("client_report_snapshots")
+}
+
+model RecommendationTemplate {
+  id                   String   @id @default(cuid())
+  questionCode         String   @map("question_code")
+  play                 String
+  role                 String
+  challengeTag         String   @map("challenge_tag")
+  answerShort          String   @map("answer_short")
+  answerLong           String   @map("answer_long")
+  actions              String[]
+  risks                String[]
+  managerTalkingPoints String[] @map("manager_talking_points")
+  direction30          String   @map("direction_30")
+  direction60          String   @map("direction_60")
+  direction90          String   @map("direction_90")
+  relatedModules       String[] @map("related_modules")
+  audienceRole         String[] @map("audience_role")
+
+  @@map("recommendation_templates")
+}
+
+model ExpansionSignal {
+  id                String           @id @default(cuid())
+  companyId         String           @map("company_id")
+  userId            String?          @map("user_id")
+  programInstanceId String?          @map("program_instance_id")
+  signalType        String           @map("signal_type")
+  summary           String
+  suggestedPlay     String           @map("suggested_play")
+  urgency           String
+  evidence          String
+  recommendedOwner  String           @map("recommended_owner")
+  status            String
+  notes             String?
+  detectedAt        DateTime         @default(now()) @map("detected_at")
+  company           Company          @relation(fields: [companyId], references: [id])
+  programInstance   ProgramInstance? @relation(fields: [programInstanceId], references: [id])
+
+  @@map("expansion_signals")
+}
+
+model DeliveryHandoff {
+  id                   String            @id @default(cuid())
+  companyId            String            @map("company_id")
+  opportunityId        String            @map("opportunity_id")
+  programTitle         String            @map("program_title")
+  businessNeed         String            @map("business_need")
+  targetAudience       String            @map("target_audience")
+  competencies         String[]
+  assessmentPlan       String            @map("assessment_plan")
+  successMeasures      String[]          @map("success_measures")
+  promisedDeliverables String[]          @map("promised_deliverables")
+  status               String
+  receivedAt           DateTime          @default(now()) @map("received_at")
+  company              Company           @relation(fields: [companyId], references: [id])
+  programInstances     ProgramInstance[]
+
+  @@map("delivery_handoffs")
+}
+
+model IntegrationEvent {
+  id           String    @id @default(cuid())
+  type         String
+  targetSystem String    @map("target_system")
+  payload      Json
+  status       String
+  createdAt    DateTime  @default(now()) @map("created_at")
+  processedAt  DateTime? @map("processed_at")
+
+  @@map("integration_events")
+}
+
+model ExternalSystemLink {
+  id          String  @id @default(cuid())
+  entityType  String  @map("entity_type")
+  entityId    String  @map("entity_id")
+  systemName  String  @map("system_name")
+  externalId  String  @map("external_id")
+  externalUrl String? @map("external_url")
+
+  @@map("external_system_links")
+}
+
+model ReportSnapshot {
+  id                String          @id @default(cuid())
+  programInstanceId String          @map("program_instance_id")
+  authorId          String          @map("author_id")
+  sectionsIncluded  String[]        @map("sections_included")
+  contentMarkdown   String          @map("content_markdown")
+  generatedAt       DateTime        @default(now()) @map("generated_at")
+  programInstance   ProgramInstance @relation(fields: [programInstanceId], references: [id], onDelete: Cascade)
+
+  @@map("report_snapshots")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  action    String
+  details   String
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model ProgramSnapshot {
+  id                   String          @id @default(cuid())
+  programInstanceId    String          @map("program_instance_id")
+  companyId            String          @map("company_id")
+  refreshedAt          DateTime        @default(now()) @map("refreshed_at")
+  learnersInvited      Int             @map("learners_invited")
+  learnersActive       Int             @map("learners_active")
+  learnersNotStarted   Int             @map("learners_not_started")
+  learnersInProgress   Int             @map("learners_in_progress")
+  learnersCompleted    Int             @map("learners_completed")
+  learnersOverdue      Int             @map("learners_overdue")
+  certificatesIssued   Int             @map("certificates_issued")
+  attendanceRate       Float           @map("attendance_rate")
+  actionPlansActive    Int             @map("action_plans_active")
+  actionPlansCompleted Int             @map("action_plans_completed")
+  company              Company         @relation(fields: [companyId], references: [id])
+  programInstance      ProgramInstance @relation(fields: [programInstanceId], references: [id], onDelete: Cascade)
+
+  @@map("program_snapshots")
+}
+
+model ExportRecord {
+  id           String   @id @default(cuid())
+  type         String
+  requestedBy  String   @map("requested_by")
+  requestedAt  DateTime @default(now()) @map("requested_at")
+  status       String
+  downloadUrl  String?  @map("download_url")
+  errorMessage String?  @map("error_message")
+  filename     String?
+
+  @@map("export_records")
+}
+
+model CopilotThread {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  courseId  String?          @map("course_id")
+  lessonId  String?          @map("lesson_id")
+  title     String           @default("New Chat")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  messages  CopilotMessage[]
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@map("copilot_threads")
+}
+
+model CopilotMessage {
+  id        String        @id @default(cuid())
+  threadId  String        @map("thread_id")
+  role      String
+  content   String
+  metadata  Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+  thread    CopilotThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@map("copilot_messages")
+}
+
+enum Role {
+  Learner
+  Consultant
+  StrengthscapeAdmin
+  SuperAdmin
+  Finance
+}
+
+enum LessonType {
+  Video
+  Text
+  Quiz
+  Assignment
+  Reflection
+  Resource
+  LiveSessionPrep
+}
+
+enum ResourceType {
+  PDF
+  Link
+  Document
+}
